@@ -1,34 +1,54 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+import API from './api'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [tasks, setTasks] = useState([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+
+  // 1. Fetch tasks from Django
+  const fetchTasks = async () => {
+    try {
+      const response = await API.get('tasks/');
+      setTasks(response.data);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  // 2. Add a new task
+  const addTask = async () => {
+    try {
+      const response = await API.post('tasks/', { title: newTaskTitle, completed: false });
+      setTasks([...tasks, response.data]); // Update UI immediately
+      setNewTaskTitle(""); // Clear input
+    } catch (error) {
+      console.error("Error adding task:", error);
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div style={{ padding: '20px' }}>
+      <h1>Django + React Task List</h1>
+      
+      <input 
+        value={newTaskTitle} 
+        onChange={(e) => setNewTaskTitle(e.target.value)}
+        placeholder="New task..."
+      />
+      <button onClick={addTask}>Add Task</button>
+
+      <ul>
+        {tasks.map(task => (
+          <li key={task.id}>
+            {task.title} {task.completed ? "✅" : "⏳"}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
