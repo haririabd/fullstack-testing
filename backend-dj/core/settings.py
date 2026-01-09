@@ -16,18 +16,29 @@ from dotenv import load_dotenv
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+ON_CODESPACE = os.getenv("ON_CODESPACE", "False") == "True"
+ON_RAILWAY = os.getenv("ON_RAILWAY", "False") == "True"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-f9@0jep9!0$16gp41%=96um)wftn0y@wu$rbm($buz*nns5g-s'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = []
+
+if ON_RAILWAY:
+    ALLOWED_HOSTS += [
+        '.railway.app',
+    ]
+else:
+    ALLOWED_HOSTS += [
+        '127.0.0.1',
+        'localhost',
+    ]
 
 
 # Application definition
@@ -45,9 +56,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -60,7 +71,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -104,42 +115,93 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+if ON_RAILWAY:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.railway.app',
+        'http://*.railway.app',
+        ]
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kuala_Lumpur'
 
 USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_BASE_DIR = BASE_DIR / 'staticfiles'
+STATICFILES_BASE_DIR.mkdir(exist_ok=True, parents=True)
+
+STATICFILES_VENDOR_DIR = STATICFILES_BASE_DIR / 'vendors'
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# source (s) for python manage.py collectstatic
+STATICFILES_DIRS = [
+    STATICFILES_BASE_DIR
+]
+
+# output for python manage.py collectstatic
+# local cdn --> prod cdn
+STATIC_ROOT = BASE_DIR / 'local-cdn'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-codespace_name = os.getenv("CODESPACE_NAME")
-codespace_domain = os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+# ==========================================
+# CORS & CSRF CONFIGURATION (Dynamic)
+# ==========================================
 
-if codespace_name and codespace_domain:
-    CORS_ALLOWED_ORIGINS = [
-        f'https://{codespace_name}-5173.{codespace_domain}',
-        'https://localhost:5173',
-        'http://127.0.0.1:5173'
+CORS_ALLOW_CREDENTIALS = True
+
+# Default: Localhost
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# Codespace Overrides
+if ON_CODESPACE:
+    codespace_name = os.getenv("CODESPACE_NAME")
+    codespace_domain = os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")
+    
+    if codespace_name and codespace_domain:
+        # Frontend (React) running on port 5173
+        frontend_url = f"https://{codespace_name}-5173.{codespace_domain}"
+        CORS_ALLOWED_ORIGINS.append(frontend_url)
+        
+        # Backend (Django) running on port 8000 - Needed for Admin CSRF
+        backend_url = f"https://{codespace_name}-8000.{codespace_domain}"
+        CSRF_TRUSTED_ORIGINS.append(backend_url)
+
+# CRITICAL: Custom User Model
+# AUTH_USER_MODEL = 'api.User'
+
+#check if using codespace
+
+if ON_CODESPACE:
+    INSTALLED_APPS += [
+        'django_browser_reload',
     ]
-
-else:
-    # Keep local defaults (or use env var override if provided)
-    CORS_ALLOWED_ORIGINS = [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
+    MIDDLEWARE += [
+        'django_browser_reload.middleware.BrowserReloadMiddleware',
+    ]
+    X_FRAME_OPTIONS = 'ALLOW-FROM preview.app.github.dev'
+    ALLOWED_HOSTS += [
+        '.app.github.dev',
     ]

@@ -15,9 +15,17 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.conf import settings
 from django.urls import path, include
+
+ON_CODESPACE = settings.ON_CODESPACE
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')), # All our API routes now starts with /api/
 ]
+
+if ON_CODESPACE:
+    urlpatterns += [
+        path('__reload__/', include("django_browser_reload.urls")),
+    ]
